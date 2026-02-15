@@ -34,11 +34,11 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Memory usage > 90%
 	if memStr != "" {
-		v, err := strconv.ParseUint(memStr, 64)
-		if err == nil && v > 90 {
-			fmt.Fprintf(&b, "Memory usage too high: %d%%\n", v)
-		}
-	}
+    v, err := strconv.ParseUint(memStr, 10, 64)
+    if err == nil && v < 100 {
+        fmt.Fprintf(&b, "Memory usage high: %d Mb left\n", v)
+    }
+}
 
 	// Disk free < 1000 Mb - ПЕРЕПРОВЕРЯЕМ: если значение БОЛЬШЕ 1000, то свободного места МАЛО
 	if diskStr == "" {
