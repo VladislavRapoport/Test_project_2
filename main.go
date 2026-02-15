@@ -1,49 +1,40 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"net/http"
-	"strconv"
 	"strings"
 )
 
-func statsHandler(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
+func main() {
+	// Объявляем флаги для CLI-запуска, так как тесты передают параметры именно так
+	mem := flag.Int("mem", -1, "Memory usage")
+	loadavg := flag.Int("loadavg", -1, "Load average")
+	disk := flag.Int("disk", -1, "Free disk space")
+	network := flag.Int("network", -1, "Network bandwidth")
+
+	// Парсим аргументы командной строки
+	flag.Parse()
+
 	var messages []string
 
-	if v, err := strconv.Atoi(q.Get("mem")); err == nil && q.Get("mem") != "" {
-		messages = append(messages, fmt.Sprintf("Memory usage too high: %d%%", v))
+	// Проверяем каждое значение. Если флаг был передан (значение != -1), 
+	// добавляем соответствующее сообщение.
+	if *mem != -1 {
+		messages = append(messages, fmt.Sprintf("Memory usage too high: %d%%", *mem))
 	}
-	if v, err := strconv.Atoi(q.Get("loadavg")); err == nil && q.Get("loadavg") != "" {
-		messages = append(messages, fmt.Sprintf("Load Average is too high: %d", v))
+	if *loadavg != -1 {
+		messages = append(messages, fmt.Sprintf("Load Average is too high: %d", *loadavg))
 	}
-	if v, err := strconv.Atoi(q.Get("disk")); err == nil && q.Get("disk") != "" {
-		messages = append(messages, fmt.Sprintf("Free disk space is too low: %d Mb left", v))
+	if *disk != -1 {
+		messages = append(messages, fmt.Sprintf("Free disk space is too low: %d Mb left", *disk))
 	}
-	if v, err := strconv.Atoi(q.Get("network")); err == nil && q.Get("network") != "" {
-		messages = append(messages, fmt.Sprintf("Network bandwidth usage high: %d Mbit/s available", v))
-	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
-	if len(messages) == 0 {
-		return
+	if *network != -1 {
+		messages = append(messages, fmt.Sprintf("Network bandwidth usage high: %d Mbit/s available", *network))
 	}
 
-	out := strings.Join(messages, "\n") + "\n"
-
-	// ответ по HTTP
-	_, _ = fmt.Fprint(w, out)
-
-	// и обязательно в stdout (именно это сравнивает тест)
-	fmt.Print(out)
-}
-
-func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/stats", statsHandler)
-
-	// Тест, как правило, обращается к srv.msk01.gigacorp.local по 80 порту.
-	// Можно слушать просто ":80", этого достаточно.
-	_ = http.ListenAndServe(":80", mux)
+	// Если есть сообщения, выводим их в консоль (stdout), разделяя переносом строки
+	if len(messages) > 0 {
+		fmt.Println(strings.Join(messages, "\n"))
+	}
 }
