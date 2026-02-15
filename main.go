@@ -87,3 +87,4 @@ func main() {
 		log.Fatal("Server forced to shutdown:", err)
 	}
 	log.Println("Server exiting")
+}
