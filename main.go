@@ -1,45 +1,43 @@
 package main
 
 import (
-    "fmt"
-    "math/rand"
-    "strings"
+    "context"
+    "log"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
     "time"
 )
 
 func main() {
-    rand.Seed(time.Now().UnixNano())
-    fmt.Println("🖥️  Мониторинг сервера запущен...")
+    mux := http.NewServeMux()
+    mux.HandleFunc("/", handler) // твоя текущая функция handler
     
-    for {
-        // Проверка CPU (имитация 20-80%)
-        cpuUsage := getCPUUsage()
-        fmt.Printf("📊 CPU: %d%%\n", cpuUsage)
-        
-        // Проверка памяти (имитация 40-90%)
-        memUsage := getMemoryUsage()
-        fmt.Printf("💾 RAM: %d%% (%.1f GB)\n", memUsage, float64(memUsage)/100*8)
-        
-        // Проверка дискового пространства (60-95%)
-        diskUsage := getDiskUsage()
-        fmt.Printf("💿 Диск: %d%%\n", diskUsage)
-        
-        fmt.Printf("⏰ %s\n", time.Now().Format("15:04:05"))
-        fmt.Println(strings.Repeat("─", 60))
-        fmt.Println()
-        
-        time.Sleep(3 * time.Second)
+    srv := &http.Server{
+        Addr:    ":8080",
+        Handler: mux,
     }
-}
-
-func getCPUUsage() int {
-    return 20 + rand.Intn(60)
-}
-
-func getMemoryUsage() int {
-    return 40 + rand.Intn(50)
-}
-
-func getDiskUsage() int {
-    return 60 + rand.Intn(36)
+    
+    // Запуск сервера в горутине
+    go func() {
+        log.Println("Server starting on :8080")
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatalf("listen: %s\n", err)
+        }
+    }()
+    
+    // Graceful shutdown
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+    log.Println("Shutting down server...")
+    
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    
+    if err := srv.Shutdown(ctx); err != nil {
+        log.Fatal("Server forced to shutdown:", err)
+    }
+    log.Println("Server exiting")
 }
