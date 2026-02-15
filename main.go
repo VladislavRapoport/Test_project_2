@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +14,8 @@ import (
 )
 
 func getLoadAverage() string {
-	data, err := ioutil.ReadFile("/proc/loadavg")
+	// Использование os.ReadFile вместо ioutil.ReadFile
+	data, err := os.ReadFile("/proc/loadavg")
 	if err != nil {
 		return "unknown"
 	}
@@ -87,4 +87,3 @@ func main() {
 		log.Fatal("Server forced to shutdown:", err)
 	}
 	log.Println("Server exiting")
-}
