@@ -13,6 +13,7 @@ import (
 )
 
 func getFreeDiskSpaceMB(path string) (uint64, bool) {
+	// В данной реализации возвращаем false, так как данных нет
 	return 0, false
 }
 
@@ -22,50 +23,51 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 	diskStr := r.URL.Query().Get("disk")
 	netStr := r.URL.Query().Get("net")
 
-	var b strings.Builder
+	var messages []string
 
-	// Load Average > 50
+	// 1. Load Average > 50
 	if loadStr != "" {
 		v, err := strconv.ParseFloat(loadStr, 64)
 		if err == nil && v > 50 {
-			fmt.Fprintf(&b, "Load Average is too high: %.0f\n", v)
+			messages = append(messages, fmt.Sprintf("Load Average is too high: %.0f", v))
 		}
 	}
 
-	// Memory usage > 90%
+	// 2. Memory usage > 80% (Исправлен текст и порог)
 	if memStr != "" {
-    v, err := strconv.ParseUint(memStr, 10, 64)
-    if err == nil && v < 100 {
-        fmt.Fprintf(&b, "Memory usage high: %d Mb left\n", v)
-    }
-}
+		v, err := strconv.ParseUint(memStr, 10, 64)
+		if err == nil && v > 80 {
+			messages = append(messages, fmt.Sprintf("Memory usage too high: %d%%", v))
+		}
+	}
 
-	// Disk free < 1000 Mb - ПЕРЕПРОВЕРЯЕМ: если значение БОЛЬШЕ 1000, то свободного места МАЛО
-	if diskStr == "" {
-		if v, ok := getFreeDiskSpaceMB("/"); ok && v < 1000 {
-			fmt.Fprintf(&b, "Free disk space is too low: %d Mb left\n", v)
+	// 3. Disk free < 1000 Mb
+	if diskStr != "" {
+		v, err := strconv.ParseUint(diskStr, 10, 64)
+		if err == nil && v < 1000 {
+			messages = append(messages, fmt.Sprintf("Free disk space is too low: %d Mb left", v))
 		}
 	} else {
-		v, err := strconv.ParseUint(diskStr, 10, 64)
-		if err == nil && v > 1000 { // Изменено: > 1000 значит мало места
-			fmt.Fprintf(&b, "Free disk space is too low: %d Mb left\n", v)
+		if v, ok := getFreeDiskSpaceMB("/"); ok && v < 1000 {
+			messages = append(messages, fmt.Sprintf("Free disk space is too low: %d Mb left", v))
 		}
 	}
 
-	// Network bandwidth usage high: <value> Mbit/s available
+	// 4. Network bandwidth usage high: %d Mbit/s available
 	if netStr != "" {
 		v, err := strconv.Atoi(netStr)
 		if err == nil {
-			fmt.Fprintf(&b, "Network bandwidth usage high: %d Mbit/s available\n", v)
+			messages = append(messages, fmt.Sprintf("Network bandwidth usage high: %d Mbit/s available", v))
 		}
 	}
 
-	if b.Len() == 0 {
-		b.WriteString("ok")
-	}
-
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte(b.String()))
+	if len(messages) == 0 {
+		_, _ = w.Write([]byte("ok"))
+	} else {
+		// Соединяем сообщения через перевод строки, как ожидает логгер
+		_, _ = w.Write([]byte(strings.Join(messages, "\n")))
+	}
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +86,9 @@ func main() {
 	}
 
 	go func() {
-		_ = srv.ListenAndServe()
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			fmt.Printf("HTTP server ListenAndServe: %v", err)
+		}
 	}()
 
 	quit := make(chan os.Signal, 1)
