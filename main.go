@@ -10,16 +10,20 @@ import (
     "time"
 )
 
+func handler(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    _, _ = w.Write([]byte("ok"))
+}
+
 func main() {
     mux := http.NewServeMux()
-    mux.HandleFunc("/", handler) // твоя текущая функция handler
+    mux.HandleFunc("/", handler)
     
     srv := &http.Server{
         Addr:    ":8080",
         Handler: mux,
     }
     
-    // Запуск сервера в горутине
     go func() {
         log.Println("Server starting on :8080")
         if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -27,7 +31,6 @@ func main() {
         }
     }()
     
-    // Graceful shutdown
     quit := make(chan os.Signal, 1)
     signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
     <-quit
